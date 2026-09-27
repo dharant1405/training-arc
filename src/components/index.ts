@@ -6,3 +6,6 @@ export { SectionHeader } from './SectionHeader';
 export { WorkoutCard } from './WorkoutCard';
 export { CinematicBackground } from './CinematicBackground';
 export { ComingSoon } from './ComingSoon';
+export { ProgressBar } from './ProgressBar';
+export { LevelUpCelebration } from './LevelUpCelebration';
+export { AchievementUnlockedCard } from './AchievementUnlockedCard';

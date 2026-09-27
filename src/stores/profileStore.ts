@@ -1,15 +1,18 @@
 import { create } from 'zustand';
 import type { WarriorProfile } from '../types/profile';
-import { getWarriorProfile } from '../services/profileRepository';
+import type { Workout } from '../types/workout';
+import { getWarriorProfile, saveWarriorProfile } from '../services/profileRepository';
+import { applyWorkoutCompletion, type WorkoutCompletionResult } from '../services/gamification';
 
 type ProfileState = {
   profile: WarriorProfile | null;
   status: 'idle' | 'loading' | 'ready' | 'error';
   error: string | null;
   load: (warriorName: string) => Promise<void>;
+  applyCompletion: (workout: Workout) => Promise<WorkoutCompletionResult>;
 };
 
-export const useProfileStore = create<ProfileState>((set) => ({
+export const useProfileStore = create<ProfileState>((set, get) => ({
   profile: null,
   status: 'idle',
   error: null,
@@ -25,5 +28,16 @@ export const useProfileStore = create<ProfileState>((set) => ({
         error: err instanceof Error ? err.message : 'Failed to load warrior profile.',
       });
     }
+  },
+
+  applyCompletion: async (workout: Workout) => {
+    const { profile } = get();
+    if (!profile) {
+      throw new Error('Cannot complete a workout before the warrior profile has loaded.');
+    }
+    const { profile: nextProfile, result } = applyWorkoutCompletion(profile, workout);
+    await saveWarriorProfile(nextProfile);
+    set({ profile: nextProfile });
+    return result;
   },
 }));

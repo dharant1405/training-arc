@@ -1,6 +1,9 @@
-// Single authoritative source for XP -> level -> rank math.
-// Every screen must read progression through these functions —
-// never recompute level/rank locally.
+// Single authoritative source for XP -> level -> rank -> streak -> achievement
+// math. Every screen must read progression through these functions —
+// never recompute level/rank/streak/achievements locally.
+
+import type { WarriorProfile } from '../types/profile';
+import type { Workout } from '../types/workout';
 
 export type Rank = {
   name: string;
@@ -72,4 +75,149 @@ export function getRankForLevel(level: number): Rank {
 
 export function getNextRank(level: number): Rank | null {
   return RANKS.find((rank) => rank.minLevel > level) ?? null;
+}
+
+// --- Streak ---------------------------------------------------------------
+
+function toDateKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * A completion on the same calendar day never increases the streak (prevents
+ * double-counting same-day completions). A completion the day after the last
+ * one extends it. Anything else — first ever completion, or a missed day —
+ * resets the streak to 1.
+ */
+export function calculateStreak(
+  previousStreak: number,
+  lastCompletionDate: string | null,
+  now: Date = new Date(),
+): number {
+  const today = toDateKey(now);
+  if (lastCompletionDate === today) {
+    return previousStreak;
+  }
+  const yesterday = toDateKey(new Date(now.getTime() - 24 * 60 * 60 * 1000));
+  if (lastCompletionDate === yesterday) {
+    return previousStreak + 1;
+  }
+  return 1;
+}
+
+// --- Achievements -----------------------------------------------------------
+
+export const ACHIEVEMENT_IDS = {
+  firstTraining: 'first-training',
+  warrior: 'warrior',
+  noDaysOff: 'no-days-off',
+  risingLegend: 'rising-legend',
+} as const;
+
+export type Achievement = {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+};
+
+export const ACHIEVEMENTS: Achievement[] = [
+  {
+    id: ACHIEVEMENT_IDS.firstTraining,
+    title: 'First Training',
+    description: 'Complete your first workout.',
+    icon: '🔥',
+  },
+  {
+    id: ACHIEVEMENT_IDS.warrior,
+    title: 'Warrior',
+    description: 'Complete 10 workouts.',
+    icon: '⚔',
+  },
+  {
+    id: ACHIEVEMENT_IDS.noDaysOff,
+    title: 'No Days Off',
+    description: 'Reach a 7-day streak.',
+    icon: '📅',
+  },
+  {
+    id: ACHIEVEMENT_IDS.risingLegend,
+    title: 'Rising Legend',
+    description: 'Reach Level 10.',
+    icon: '⭐',
+  },
+];
+
+/** IDs of every achievement whose condition is currently satisfied. */
+export function evaluateAchievements(profile: WarriorProfile, level: number): string[] {
+  const unlocked: string[] = [];
+  if (profile.workoutsCompleted >= 1) unlocked.push(ACHIEVEMENT_IDS.firstTraining);
+  if (profile.workoutsCompleted >= 10) unlocked.push(ACHIEVEMENT_IDS.warrior);
+  if (profile.streakDays >= 7) unlocked.push(ACHIEVEMENT_IDS.noDaysOff);
+  if (level >= 10) unlocked.push(ACHIEVEMENT_IDS.risingLegend);
+  return unlocked;
+}
+
+// --- Workout completion ------------------------------------------------------
+
+export type WorkoutCompletionResult = {
+  xpAwarded: number;
+  totalXp: number;
+  previousLevel: number;
+  newLevel: number;
+  leveledUp: boolean;
+  streakDays: number;
+  workoutsCompleted: number;
+  newlyUnlockedAchievements: Achievement[];
+};
+
+/**
+ * The single entry point for turning a successful workout completion into
+ * updated profile state. Only call this on a genuine, guarded completion —
+ * never for opening/viewing/starting/pausing/abandoning a workout.
+ */
+export function applyWorkoutCompletion(
+  profile: WarriorProfile,
+  workout: Workout,
+  now: Date = new Date(),
+): { profile: WarriorProfile; result: WorkoutCompletionResult } {
+  const previousLevel = getLevelProgress(profile.totalXp).level;
+  const totalXp = profile.totalXp + workout.xpReward;
+  const newLevel = getLevelProgress(totalXp).level;
+  const streakDays = calculateStreak(profile.streakDays, profile.lastCompletionDate, now);
+  const workoutsCompleted = profile.workoutsCompleted + 1;
+
+  const provisionalProfile: WarriorProfile = {
+    ...profile,
+    totalXp,
+    streakDays,
+    workoutsCompleted,
+    lastCompletionDate: toDateKey(now),
+  };
+
+  const unlockedIds = evaluateAchievements(provisionalProfile, newLevel);
+  const newlyUnlockedIds = unlockedIds.filter((id) => !profile.unlockedAchievementIds.includes(id));
+  const unlockedAchievementIds = [...profile.unlockedAchievementIds, ...newlyUnlockedIds];
+
+  const nextProfile: WarriorProfile = {
+    ...provisionalProfile,
+    unlockedAchievementIds,
+    achievementsUnlocked: unlockedAchievementIds.length,
+  };
+
+  return {
+    profile: nextProfile,
+    result: {
+      xpAwarded: workout.xpReward,
+      totalXp,
+      previousLevel,
+      newLevel,
+      leveledUp: newLevel > previousLevel,
+      streakDays,
+      workoutsCompleted,
+      newlyUnlockedAchievements: newlyUnlockedIds.map(
+        (id) => ACHIEVEMENTS.find((achievement) => achievement.id === id)!,
+      ),
+    },
+  };
 }

@@ -4,6 +4,8 @@ export type WarriorProfile = {
   streakDays: number;
   workoutsCompleted: number;
   achievementsUnlocked: number;
+  unlockedAchievementIds: string[];
+  lastCompletionDate: string | null;
   attributes: {
     strength: number;
     endurance: number;

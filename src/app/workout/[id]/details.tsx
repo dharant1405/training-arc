@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { CinematicBackground, GlassPanel, PrimaryButton } from '../../../components';
@@ -7,6 +8,7 @@ import { getWorkoutById } from '../../../data/workouts';
 export default function WorkoutDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const workout = getWorkoutById(id);
+  const [isStarting, setIsStarting] = useState(false);
 
   if (!workout) {
     return (
@@ -52,7 +54,12 @@ export default function WorkoutDetailsScreen() {
 
         <PrimaryButton
           label="Start Training"
-          onPress={() => router.push(`/workout/${workout.id}/execute`)}
+          onPress={() => {
+            if (isStarting) return;
+            setIsStarting(true);
+            router.replace(`/workout/${workout.id}/execute`);
+          }}
+          disabled={isStarting}
           style={styles.startButton}
         />
       </ScrollView>
