@@ -13,6 +13,7 @@ export default function WorkoutExecuteScreen() {
   const session = useSessionStore((state) => state.session);
   const phase = useSessionStore((state) => state.phase);
   const restRemaining = useSessionStore((state) => state.restRemaining);
+  const restTotal = useSessionStore((state) => state.restTotal);
   const isCompleting = useSessionStore((state) => state.isCompleting);
   const startSession = useSessionStore((state) => state.startSession);
   const pause = useSessionStore((state) => state.pause);
@@ -108,7 +109,7 @@ export default function WorkoutExecuteScreen() {
               <Text style={styles.restTimer}>{formatTime(restRemaining)}</Text>
               <View style={styles.restBar}>
                 <ProgressBar
-                  progress={exercise.restSeconds ? 1 - restRemaining / exercise.restSeconds : 0}
+                  progress={restTotal ? 1 - restRemaining / restTotal : 0}
                   height={6}
                 />
               </View>
@@ -135,7 +136,7 @@ export default function WorkoutExecuteScreen() {
               label={isLastExercise ? 'Complete Workout' : 'Complete Exercise'}
               onPress={() => completeCurrentExercise(workout)}
               loading={isCompleting}
-              disabled={isPaused || isCompleting}
+              disabled={isPaused || isCompleting || session.status !== 'IN_PROGRESS'}
               style={styles.primaryAction}
             />
           )}

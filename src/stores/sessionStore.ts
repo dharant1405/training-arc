@@ -8,6 +8,7 @@ type SessionState = {
   session: WorkoutSession | null;
   phase: ExercisePhase;
   restRemaining: number;
+  restTotal: number;
   isCompleting: boolean;
   lastResult: WorkoutCompletionResult | null;
 
@@ -27,6 +28,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   session: null,
   phase: 'ACTIVE',
   restRemaining: 0,
+  restTotal: 0,
   isCompleting: false,
   lastResult: null,
 
@@ -50,6 +52,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       },
       phase: 'ACTIVE',
       restRemaining: 0,
+      restTotal: 0,
       lastResult: null,
       isCompleting: false,
     });
@@ -80,14 +83,15 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   skipRest: () => {
     const { session } = get();
     if (!session) return;
-    set({ phase: 'ACTIVE', restRemaining: 0 });
+    set({ phase: 'ACTIVE', restRemaining: 0, restTotal: 0 });
   },
 
   completeCurrentExercise: async (workout) => {
-    const { session, isCompleting } = get();
-    // Guard duplicate completion: a request already in flight, or a session
-    // that isn't actively running, is ignored outright.
-    if (!session || session.status !== 'IN_PROGRESS' || isCompleting) return;
+    const { session, isCompleting, phase } = get();
+    // Guard duplicate completion: a request already in flight, a session
+    // that isn't actively running, or a rapid second tap that lands while
+    // we're already resting/transitioning is ignored outright.
+    if (!session || session.status !== 'IN_PROGRESS' || isCompleting || phase !== 'ACTIVE') return;
 
     const isLastExercise = session.currentExerciseIndex >= workout.exercises.length - 1;
 
@@ -102,6 +106,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         },
         phase: restSeconds > 0 ? 'RESTING' : 'ACTIVE',
         restRemaining: restSeconds,
+        restTotal: restSeconds,
       });
       return;
     }
@@ -134,6 +139,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   clear: () => {
-    set({ session: null, phase: 'ACTIVE', restRemaining: 0, lastResult: null, isCompleting: false });
+    set({
+      session: null,
+      phase: 'ACTIVE',
+      restRemaining: 0,
+      restTotal: 0,
+      lastResult: null,
+      isCompleting: false,
+    });
   },
 }));
