@@ -11,6 +11,7 @@ import {
 import { colors, spacing, typography } from '../../../theme';
 import { getWorkoutById } from '../../../data/workouts';
 import { useSessionStore } from '../../../stores/sessionStore';
+import { useProfileStore } from '../../../stores/profileStore';
 
 type RevealStep = { type: 'levelup' } | { type: 'achievement'; index: number } | { type: 'summary' };
 
@@ -19,6 +20,9 @@ export default function WorkoutCompleteScreen() {
   const workout = getWorkoutById(id);
   const lastResult = useSessionStore((state) => state.lastResult);
   const clear = useSessionStore((state) => state.clear);
+  const syncStatus = useProfileStore((state) => state.syncStatus);
+  const syncError = useProfileStore((state) => state.syncError);
+  const retrySync = useProfileStore((state) => state.retrySync);
 
   const steps = useMemo<RevealStep[]>(() => {
     if (!lastResult) return [{ type: 'summary' }];
@@ -70,6 +74,20 @@ export default function WorkoutCompleteScreen() {
             <Stat label="Achievements" value={`+${lastResult.newlyUnlockedAchievements.length}`} />
           </View>
         </GlassPanel>
+
+        {syncStatus === 'error' && (
+          <GlassPanel style={styles.syncPanel}>
+            <Text style={styles.syncText}>
+              ⚠ {syncError ?? 'Could not save this to the cloud.'} Your XP is safe on this device.
+            </Text>
+            <PrimaryButton
+              label="Retry Save"
+              onPress={retrySync}
+              variant="ghost"
+              style={styles.retryButton}
+            />
+          </GlassPanel>
+        )}
 
         <PrimaryButton label="Return to Home" onPress={handleReturnHome} style={styles.returnButton} />
       </View>
@@ -171,5 +189,17 @@ const styles = StyleSheet.create({
   },
   returnButton: {
     marginTop: spacing.sm,
+  },
+  syncPanel: {
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  syncText: {
+    ...typography.caption,
+    color: colors.danger,
+    textAlign: 'center',
+  },
+  retryButton: {
+    width: 160,
   },
 });

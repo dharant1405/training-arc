@@ -1,12 +1,24 @@
+import { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CinematicBackground, GlassPanel } from '../components';
 import { colors, spacing, typography } from '../theme';
+import { useAuthStore } from '../stores/authStore';
 import { useProfileStore } from '../stores/profileStore';
-import { ACHIEVEMENTS } from '../services/gamification';
+import { useProgressStore } from '../stores/progressStore';
+import { ACHIEVEMENTS, getAchievementProgress, getLevelProgress } from '../services/gamification';
 
 export default function AchievementsScreen() {
+  const user = useAuthStore((state) => state.user);
   const profile = useProfileStore((state) => state.profile);
+  const unlockedAt = useProgressStore((state) => state.achievementUnlockedAt);
+  const loadProgress = useProgressStore((state) => state.load);
+
+  useEffect(() => {
+    if (user?.id) loadProgress(user.id);
+  }, [loadProgress, user?.id]);
+
   const unlockedIds = profile?.unlockedAchievementIds ?? [];
+  const level = profile ? getLevelProgress(profile.totalXp).level : 1;
 
   return (
     <CinematicBackground>
@@ -18,6 +30,11 @@ export default function AchievementsScreen() {
 
         {ACHIEVEMENTS.map((achievement) => {
           const unlocked = unlockedIds.includes(achievement.id);
+          const progress = profile
+            ? getAchievementProgress(achievement.id, profile, level)
+            : null;
+          const unlockedDate = unlockedAt[achievement.id];
+
           return (
             <GlassPanel key={achievement.id} style={styles.card}>
               <Text style={styles.icon}>{unlocked ? achievement.icon : '🔒'}</Text>
@@ -26,6 +43,19 @@ export default function AchievementsScreen() {
                   {achievement.title}
                 </Text>
                 <Text style={styles.description}>{achievement.description}</Text>
+
+                {unlocked ? (
+                  <Text style={styles.unlockedLabel}>
+                    UNLOCKED
+                    {unlockedDate ? ` · ${new Date(unlockedDate).toLocaleDateString()}` : ''}
+                  </Text>
+                ) : (
+                  progress && (
+                    <Text style={styles.progressLabel}>
+                      {progress.current} / {progress.target}
+                    </Text>
+                  )
+                )}
               </View>
             </GlassPanel>
           );
@@ -72,5 +102,17 @@ const styles = StyleSheet.create({
   },
   description: {
     ...typography.caption,
+  },
+  unlockedLabel: {
+    ...typography.label,
+    color: colors.success,
+    fontSize: 10,
+    marginTop: 4,
+  },
+  progressLabel: {
+    ...typography.label,
+    color: colors.gold,
+    fontSize: 11,
+    marginTop: 4,
   },
 });

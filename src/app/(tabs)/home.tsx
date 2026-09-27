@@ -15,11 +15,14 @@ export default function HomeScreen() {
   const profile = useProfileStore((state) => state.profile);
   const status = useProfileStore((state) => state.status);
   const error = useProfileStore((state) => state.error);
+  const syncStatus = useProfileStore((state) => state.syncStatus);
+  const syncError = useProfileStore((state) => state.syncError);
   const load = useProfileStore((state) => state.load);
 
   useEffect(() => {
-    load(warriorName);
-  }, [load, warriorName]);
+    if (!user?.id) return;
+    load(user.id, warriorName);
+  }, [load, user?.id, warriorName]);
 
   const featured = getFeaturedWorkout();
 
@@ -35,7 +38,11 @@ export default function HomeScreen() {
     return (
       <CinematicBackground style={styles.centered}>
         <Text style={styles.errorText}>{error ?? 'Something went wrong.'}</Text>
-        <PrimaryButton label="Retry" onPress={() => load(warriorName)} style={styles.retryButton} />
+        <PrimaryButton
+          label="Retry"
+          onPress={() => user?.id && load(user.id, warriorName)}
+          style={styles.retryButton}
+        />
       </CinematicBackground>
     );
   }
@@ -48,6 +55,12 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Text style={styles.brand}>TRAINING ARC</Text>
         <Text style={styles.warriorName}>{profile.warriorName.toUpperCase()}</Text>
+
+        {syncStatus === 'error' && (
+          <Text style={styles.syncWarning}>
+            ⚠ {syncError ?? 'Not synced to the cloud yet.'}
+          </Text>
+        )}
 
         <GlassPanel glow style={styles.heroPanel}>
           <View style={styles.heroRow}>
@@ -123,6 +136,10 @@ const styles = StyleSheet.create({
   warriorName: {
     ...typography.display,
     fontSize: 28,
+  },
+  syncWarning: {
+    ...typography.caption,
+    color: colors.danger,
   },
   heroPanel: {
     marginTop: spacing.sm,

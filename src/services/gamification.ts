@@ -158,6 +158,61 @@ export function evaluateAchievements(profile: WarriorProfile, level: number): st
   return unlocked;
 }
 
+export type AchievementProgress = {
+  current: number;
+  target: number;
+};
+
+/**
+ * Numeric progress toward an achievement, for achievements where a fraction
+ * is meaningful (e.g. "7 / 10 workouts"). Returns null for achievements that
+ * are purely boolean (e.g. "complete your first workout").
+ */
+export function getAchievementProgress(
+  achievementId: string,
+  profile: Pick<WarriorProfile, 'workoutsCompleted' | 'streakDays'>,
+  level: number,
+): AchievementProgress | null {
+  switch (achievementId) {
+    case ACHIEVEMENT_IDS.warrior:
+      return { current: Math.min(profile.workoutsCompleted, 10), target: 10 };
+    case ACHIEVEMENT_IDS.noDaysOff:
+      return { current: Math.min(profile.streakDays, 7), target: 7 };
+    case ACHIEVEMENT_IDS.risingLegend:
+      return { current: Math.min(level, 10), target: 10 };
+    default:
+      return null;
+  }
+}
+
+// --- Attributes --------------------------------------------------------------
+
+export type Attributes = {
+  strength: number;
+  endurance: number;
+  discipline: number;
+  agility: number;
+};
+
+/**
+ * Deterministic, centralized attribute derivation from real training
+ * statistics — never fabricated or AI-generated. Every input is a value the
+ * player actually earned (level, streak, workout count).
+ */
+export function deriveAttributes(
+  profile: Pick<WarriorProfile, 'totalXp' | 'streakDays' | 'workoutsCompleted'>,
+): Attributes {
+  const level = getLevelProgress(profile.totalXp).level;
+  const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
+
+  return {
+    strength: clamp(level * 6 + profile.workoutsCompleted * 1.5),
+    endurance: clamp(profile.workoutsCompleted * 3 + profile.streakDays * 1.2),
+    discipline: clamp(profile.streakDays * 5 + level * 2),
+    agility: clamp(level * 4 + profile.streakDays * 2),
+  };
+}
+
 // --- Workout completion ------------------------------------------------------
 
 export type WorkoutCompletionResult = {

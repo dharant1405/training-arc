@@ -113,7 +113,15 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     set({ isCompleting: true });
     try {
-      const result = await useProfileStore.getState().applyCompletion(workout);
+      const durationSeconds = Math.round((Date.now() - new Date(session.startedAt).getTime()) / 1000);
+      // applyCompletion always resolves with a local result — cloud sync
+      // failures are reported separately via profileStore.syncStatus so a
+      // network hiccup never blocks the completion screen or drops XP.
+      // session.id doubles as the completion's idempotency key so a retried
+      // sync can never create a second completion row for the same event.
+      const result = await useProfileStore
+        .getState()
+        .applyCompletion(session.id, workout, durationSeconds);
       set({
         session: {
           ...session,
@@ -123,8 +131,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         lastResult: result,
       });
     } catch (err) {
-      // Leave the session IN_PROGRESS so the user can retry completion —
-      // never silently drop XP, never crash the app.
+      // The profile hadn't loaded yet — leave the session IN_PROGRESS so the
+      // user can retry completion. Never silently drop XP, never crash.
       console.warn('Workout completion failed, session left in progress for retry.', err);
     } finally {
       set({ isCompleting: false });
