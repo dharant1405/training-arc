@@ -19,6 +19,17 @@ if (!isSupabaseConfigured) {
   );
 }
 
+if (__DEV__) {
+  // Dev-only: confirms which project this build is actually pointed at, and
+  // that Metro picked up the real .env rather than falling back to the
+  // placeholder client. Never logs the key itself.
+  console.log(
+    `[supabase] configured=${isSupabaseConfigured} host=${
+      supabaseUrl ? new URL(supabaseUrl).hostname : '(placeholder.supabase.co)'
+    }`
+  );
+}
+
 export const supabase = createClient(
   supabaseUrl ?? 'https://placeholder.supabase.co',
   supabaseAnonKey ?? 'placeholder-anon-key',

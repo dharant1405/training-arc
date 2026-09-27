@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { CinematicBackground, GlassPanel, PrimaryButton, ProgressBar, SectionHeader } from '../../components';
 import { colors, spacing, typography } from '../../theme';
@@ -36,6 +37,7 @@ function formatRelativeDate(iso: string): string {
 }
 
 export default function ProgressScreen() {
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const profile = useProfileStore((state) => state.profile);
   const completions = useProgressStore((state) => state.completions);
@@ -80,7 +82,10 @@ export default function ProgressScreen() {
 
   return (
     <CinematicBackground>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: spacing.lg + insets.top }]}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.brand}>PROGRESS</Text>
         <Text style={styles.headline}>Your training history</Text>
 

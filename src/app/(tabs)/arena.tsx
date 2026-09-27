@@ -1,4 +1,5 @@
 import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { CinematicBackground, SectionHeader, WorkoutCard } from '../../components';
 import { colors, spacing, typography } from '../../theme';
@@ -6,6 +7,7 @@ import { WORKOUTS, getFeaturedWorkout } from '../../data/workouts';
 import type { Workout } from '../../types/workout';
 
 export default function ArenaScreen() {
+  const insets = useSafeAreaInsets();
   const featured = getFeaturedWorkout();
   const otherWorkouts = WORKOUTS.filter((workout) => workout.id !== featured.id);
 
@@ -18,7 +20,7 @@ export default function ArenaScreen() {
       <FlatList
         data={otherWorkouts}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingTop: spacing.lg + insets.top }]}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={styles.header}>

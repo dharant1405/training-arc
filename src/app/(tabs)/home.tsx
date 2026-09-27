@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { CinematicBackground, GlassPanel, PrimaryButton, SectionHeader, XPRing } from '../../components';
 import { colors, spacing, typography } from '../../theme';
@@ -9,6 +10,7 @@ import { getLevelProgress, getRankForLevel } from '../../services/gamification';
 import { getFeaturedWorkout } from '../../data/workouts';
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const warriorName = (user?.user_metadata?.warrior_name as string | undefined) ?? 'Warrior';
 
@@ -52,7 +54,10 @@ export default function HomeScreen() {
 
   return (
     <CinematicBackground>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingTop: spacing.lg + insets.top }]}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.brand}>TRAINING ARC</Text>
         <Text style={styles.warriorName}>{profile.warriorName.toUpperCase()}</Text>
 

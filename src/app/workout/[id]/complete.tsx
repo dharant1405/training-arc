@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   AchievementUnlockedCard,
@@ -16,6 +17,7 @@ import { useProfileStore } from '../../../stores/profileStore';
 type RevealStep = { type: 'levelup' } | { type: 'achievement'; index: number } | { type: 'summary' };
 
 export default function WorkoutCompleteScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const workout = getWorkoutById(id);
   const lastResult = useSessionStore((state) => state.lastResult);
@@ -38,6 +40,13 @@ export default function WorkoutCompleteScreen() {
   const [stepIndex, setStepIndex] = useState(0);
   const currentStep = steps[stepIndex];
 
+  // Guards against a rapid double-tap on "Continue" advancing two reveal
+  // steps at once (the modal's fade-out isn't instant, so the button can
+  // still be tappable for a moment after the first tap registers).
+  const advanceStep = (fromIndex: number) => {
+    setStepIndex((i) => (i === fromIndex ? i + 1 : i));
+  };
+
   const handleReturnHome = () => {
     clear();
     router.replace('/(tabs)/home');
@@ -54,7 +63,12 @@ export default function WorkoutCompleteScreen() {
 
   return (
     <CinematicBackground>
-      <View style={styles.container}>
+      <View
+        style={[
+          styles.container,
+          { paddingTop: spacing.lg + insets.top, paddingBottom: spacing.lg + insets.bottom },
+        ]}
+      >
         <Text style={styles.brand}>WORKOUT COMPLETE</Text>
         <Text style={styles.title}>{workout.title.toUpperCase()}</Text>
 
@@ -97,14 +111,14 @@ export default function WorkoutCompleteScreen() {
         fromLevel={lastResult.previousLevel}
         toLevel={lastResult.newLevel}
         xpAwarded={lastResult.xpAwarded}
-        onContinue={() => setStepIndex((i) => i + 1)}
+        onContinue={() => advanceStep(stepIndex)}
       />
 
       {currentStep?.type === 'achievement' && (
         <AchievementUnlockedCard
           visible
           achievement={lastResult.newlyUnlockedAchievements[currentStep.index]}
-          onContinue={() => setStepIndex((i) => i + 1)}
+          onContinue={() => advanceStep(stepIndex)}
         />
       )}
     </CinematicBackground>

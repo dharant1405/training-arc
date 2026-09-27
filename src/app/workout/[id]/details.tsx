@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { CinematicBackground, GlassPanel, PrimaryButton } from '../../../components';
 import { colors, spacing, typography } from '../../../theme';
 import { getWorkoutById } from '../../../data/workouts';
 
 export default function WorkoutDetailsScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const workout = getWorkoutById(id);
   const [isStarting, setIsStarting] = useState(false);
@@ -21,7 +23,12 @@ export default function WorkoutDetailsScreen() {
 
   return (
     <CinematicBackground>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: spacing.lg + insets.top, paddingBottom: spacing.xxl + insets.bottom },
+        ]}
+      >
         <Text style={styles.category}>{workout.category.toUpperCase()}</Text>
         <Text style={styles.title}>{workout.title}</Text>
         <Text style={styles.description}>{workout.description}</Text>

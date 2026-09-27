@@ -43,9 +43,17 @@ export default function RegisterScreen() {
     }
 
     const success = await signUp(email.trim(), password, warriorName.trim());
-    if (success) {
-      setAwaitingConfirmation(true);
+    if (!success) return;
+
+    // signUp() returns a session immediately when email confirmation is
+    // disabled for the project — go straight to Home rather than showing
+    // the "check your email" screen the user would never be able to clear.
+    if (useAuthStore.getState().status === 'signedIn') {
+      router.replace('/(tabs)/home');
+      return;
     }
+
+    setAwaitingConfirmation(true);
   };
 
   if (awaitingConfirmation) {

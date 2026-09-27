@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   CinematicBackground,
@@ -15,6 +16,7 @@ import { useProfileStore } from '../../stores/profileStore';
 import { deriveAttributes, getLevelProgress, getRankForLevel } from '../../services/gamification';
 
 export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
   const signOut = useAuthStore((state) => state.signOut);
   const profile = useProfileStore((state) => state.profile);
   const updateWarriorName = useProfileStore((state) => state.updateWarriorName);
@@ -54,7 +56,10 @@ export default function ProfileScreen() {
 
   return (
     <CinematicBackground>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: spacing.lg + insets.top }]}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.brand}>PROFILE</Text>
 
         <View style={styles.avatarWrap}>

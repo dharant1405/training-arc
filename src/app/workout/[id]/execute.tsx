@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { CinematicBackground, GlassPanel, PrimaryButton, ProgressBar } from '../../../components';
 import { colors, spacing, typography } from '../../../theme';
@@ -7,6 +8,7 @@ import { getWorkoutById } from '../../../data/workouts';
 import { useSessionStore } from '../../../stores/sessionStore';
 
 export default function WorkoutExecuteScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const workout = getWorkoutById(id);
 
@@ -91,7 +93,12 @@ export default function WorkoutExecuteScreen() {
 
   return (
     <CinematicBackground>
-      <View style={styles.container}>
+      <View
+        style={[
+          styles.container,
+          { paddingTop: spacing.lg + insets.top, paddingBottom: spacing.lg + insets.bottom },
+        ]}
+      >
         <View>
           <Text style={styles.brand}>{workout.title.toUpperCase()}</Text>
           <Text style={styles.progressLabel}>

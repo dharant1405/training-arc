@@ -30,3 +30,20 @@ Steps to connect Training Arc to a live Supabase project for testing.
 If `.env` is missing or incomplete, the app still runs — it falls back to a
 local, unsynced profile and shows a "cloud persistence unavailable" indicator
 instead of crashing or pretending a cloud save succeeded.
+
+## Development-only: email confirmation disabled
+
+This project uses Supabase's built-in default email service (no custom SMTP
+configured), which hard-caps outgoing auth emails at **2/hour** regardless of
+the "Rate limit for sending emails" field in Auth → Rate Limits. That cap was
+blocking repeated `signUp()` testing ("email rate limit exceeded").
+
+To unblock device testing, **Auth → Sign In / Providers → Confirm email** was
+turned **off** for this project. `signUp()` now returns a session immediately
+— no confirmation email is sent or required, and `applyCompletion`/profile
+creation proceed as normal. RLS and all other security settings were left
+untouched.
+
+**Before shipping or inviting real users, turn Confirm email back on** (Auth →
+Sign In / Providers) — or configure custom SMTP if you want confirmation
+emails to work reliably during dev without hitting the 2/hour cap.

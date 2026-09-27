@@ -36,9 +36,11 @@ export const useAuthStore = create<AuthState>((set) => {
     restoreSession: async () => {
       const { data, error } = await supabase.auth.getSession();
       if (error) {
+        if (__DEV__) console.log(`[auth] restoreSession error message="${error.message}"`);
         set({ status: 'signedOut', error: error.message });
         return;
       }
+      if (__DEV__) console.log(`[auth] restoreSession session=${Boolean(data.session)}`);
       set({
         session: data.session,
         user: data.session?.user ?? null,
@@ -48,11 +50,18 @@ export const useAuthStore = create<AuthState>((set) => {
 
     signIn: async (email, password) => {
       set({ isSubmitting: true, error: null });
+      if (__DEV__) console.log('[auth] calling signInWithPassword');
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
+        if (__DEV__) {
+          console.log(
+            `[auth] signInWithPassword error status=${error.status} code=${error.code} message="${error.message}"`
+          );
+        }
         set({ isSubmitting: false, error: error.message });
         return false;
       }
+      if (__DEV__) console.log(`[auth] signInWithPassword ok, session=${Boolean(data.session)}`);
       set({
         isSubmitting: false,
         session: data.session,
@@ -64,14 +73,25 @@ export const useAuthStore = create<AuthState>((set) => {
 
     signUp: async (email, password, warriorName) => {
       set({ isSubmitting: true, error: null });
+      if (__DEV__) console.log('[auth] calling signUp');
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: { data: { warrior_name: warriorName } },
       });
       if (error) {
+        if (__DEV__) {
+          console.log(
+            `[auth] signUp error status=${error.status} code=${error.code} message="${error.message}"`
+          );
+        }
         set({ isSubmitting: false, error: error.message });
         return false;
+      }
+      if (__DEV__) {
+        console.log(
+          `[auth] signUp ok, session=${Boolean(data.session)} identities=${data.user?.identities?.length ?? 'n/a'}`
+        );
       }
       set({
         isSubmitting: false,

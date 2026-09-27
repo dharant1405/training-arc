@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CinematicBackground, GlassPanel } from '../components';
 import { colors, spacing, typography } from '../theme';
 import { useAuthStore } from '../stores/authStore';
@@ -8,6 +9,7 @@ import { useProgressStore } from '../stores/progressStore';
 import { ACHIEVEMENTS, getAchievementProgress, getLevelProgress } from '../services/gamification';
 
 export default function AchievementsScreen() {
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const profile = useProfileStore((state) => state.profile);
   const unlockedAt = useProgressStore((state) => state.achievementUnlockedAt);
@@ -22,7 +24,13 @@ export default function AchievementsScreen() {
 
   return (
     <CinematicBackground>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: spacing.lg + insets.top, paddingBottom: spacing.xxl + insets.bottom },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.brand}>ACHIEVEMENTS</Text>
         <Text style={styles.headline}>
           {unlockedIds.length} / {ACHIEVEMENTS.length} unlocked
