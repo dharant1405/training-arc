@@ -28,6 +28,12 @@
       [
         "expo-secure-store",
         {}
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Training Arc needs access to your videos so you can add them to your Motivation Library."
+        }
       ]
     ],
     "experiments": {

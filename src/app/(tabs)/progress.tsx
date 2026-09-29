@@ -1,8 +1,8 @@
-import { useEffect, useMemo } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { CinematicBackground, GlassPanel, PrimaryButton, ProgressBar, SectionHeader } from '../../components';
+import { CinematicBackground, GlassPanel, XPRing } from '../../components';
 import { colors, spacing, typography } from '../../theme';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
@@ -11,7 +11,6 @@ import { getLevelProgress, getRankForLevel } from '../../services/gamification';
 import { getWorkoutById } from '../../data/workouts';
 
 const DAY_LABELS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-const WEEKLY_XP_GOAL = 1000;
 const RECENT_TRAINING_LIMIT = 5;
 
 function startOfWeek(date: Date): Date {
@@ -36,6 +35,13 @@ function formatRelativeDate(iso: string): string {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+function formatDuration(durationSeconds: number | null): string | null {
+  if (!durationSeconds || durationSeconds <= 0) return null;
+  const minutes = Math.floor(durationSeconds / 60);
+  const seconds = durationSeconds % 60;
+  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+}
+
 export default function ProgressScreen() {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
@@ -47,6 +53,11 @@ export default function ProgressScreen() {
   useEffect(() => {
     if (user?.id) load(user.id);
   }, [load, user?.id]);
+
+  const entrance = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(entrance, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+  }, [entrance]);
 
   const weekStart = useMemo(() => startOfWeek(new Date()), []);
 
@@ -80,70 +91,128 @@ export default function ProgressScreen() {
   const levelProgress = getLevelProgress(profile.totalXp);
   const rank = getRankForLevel(levelProgress.level);
 
+  const entranceStyle = {
+    opacity: entrance,
+    transform: [
+      { translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
+    ],
+  };
+
   return (
     <CinematicBackground>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: spacing.lg + insets.top }]}
+        contentContainerStyle={[styles.content, { paddingTop: spacing.md + insets.top }]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.brand}>PROGRESS</Text>
-        <Text style={styles.headline}>Your training history</Text>
+        <Animated.View style={entranceStyle}>
+          <Text style={styles.eyebrow}>WARRIOR PROGRESS</Text>
+          <Text style={styles.headline}>Track your growth. Keep moving forward.</Text>
+          <Text style={styles.statusLine} numberOfLines={1}>
+            LV {levelProgress.level} <Text style={styles.statusDot}>•</Text> {rank.name.toUpperCase()}{' '}
+            <Text style={styles.statusDot}>•</Text> {profile.totalXp} XP
+          </Text>
 
-        <PrimaryButton
-          label="View Achievements"
-          onPress={() => router.push('/achievements')}
-          variant="ghost"
-          style={styles.achievementsButton}
-        />
+          <GlassPanel style={styles.progressionPanel}>
+            <Text style={styles.progressionLabel}>PROGRESSION</Text>
 
-        <View style={styles.statsRow}>
-          <StatCard label="Level" value={String(levelProgress.level)} />
-          <StatCard label="Rank" value={rank.name} />
-          <StatCard label="Streak" value={`🔥 ${profile.streakDays}`} />
-        </View>
-        <View style={styles.statsRow}>
-          <StatCard label="Total XP" value={String(profile.totalXp)} />
-          <StatCard label="Workouts" value={String(profile.workoutsCompleted)} />
-        </View>
+            <View style={styles.ringWrap}>
+              <View style={styles.ringGlow} />
+              <XPRing progress={levelProgress.progress} level={levelProgress.level} size={132} strokeWidth={10} />
+            </View>
 
-        <SectionHeader title="This Week" />
-        <GlassPanel style={styles.weekPanel}>
-          <View style={styles.weekRow}>
-            {weekDays.map((day) => (
-              <View key={day.label} style={styles.dayColumn}>
-                <Text style={[styles.dayDot, day.trained && styles.dayDotFilled]}>
-                  {day.trained ? '●' : '○'}
-                </Text>
-                <Text style={styles.dayLabel}>{day.label}</Text>
-              </View>
-            ))}
-          </View>
+            <Text style={styles.progressionRank}>{rank.name.toUpperCase()} RANK</Text>
 
-          <Text style={styles.weeklyXpLabel}>WEEKLY XP · {weeklyXp}</Text>
-          <ProgressBar progress={weeklyXp / WEEKLY_XP_GOAL} />
-        </GlassPanel>
+            <View style={styles.progressionDivider} />
 
-        <SectionHeader title="Recent Training" />
-        {recentTraining.length === 0 ? (
-          <GlassPanel style={styles.emptyPanel}>
-            <Text style={styles.emptyText}>
-              No training history yet. Complete a workout in the Arena to start your story.
+            <Text style={styles.progressionXp}>
+              {levelProgress.xpIntoLevel} / {levelProgress.currentLevelXp} XP
+            </Text>
+            <Text style={styles.progressionNextLevel}>
+              {levelProgress.xpToNextLevel} XP TO NEXT LEVEL
             </Text>
           </GlassPanel>
-        ) : (
-          recentTraining.map((completion) => {
-            const workout = getWorkoutById(completion.workoutId);
-            return (
-              <GlassPanel key={completion.id} style={styles.historyRow}>
-                <View style={styles.historyInfo}>
-                  <Text style={styles.historyTitle}>{workout?.title ?? 'Workout'}</Text>
-                  <Text style={styles.historyDate}>{formatRelativeDate(completion.completedAt)}</Text>
-                </View>
-                <Text style={styles.historyXp}>+{completion.xpEarned} XP</Text>
+
+          <View style={styles.statsRow}>
+            <StatCard label="STREAK" value={`🔥 ${profile.streakDays}`} />
+            <StatCard label="WORKOUTS" value={String(profile.workoutsCompleted)} />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>WEEKLY TRAINING</Text>
+            <GlassPanel style={styles.weekPanel}>
+              <View style={styles.weekRow}>
+                {weekDays.map((day) => (
+                  <View key={day.label} style={styles.dayColumn}>
+                    <Text style={[styles.dayDot, day.trained && styles.dayDotFilled]}>
+                      {day.trained ? '●' : '—'}
+                    </Text>
+                    <Text style={styles.dayLabel}>{day.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </GlassPanel>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>WEEKLY XP</Text>
+            <GlassPanel style={styles.weeklyXpPanel}>
+              <Text style={styles.weeklyXpValue}>{weeklyXp} XP</Text>
+              <Text style={styles.weeklyXpCaption}>Earned so far this week</Text>
+            </GlassPanel>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>RECENT TRAINING</Text>
+            {recentTraining.length === 0 ? (
+              <GlassPanel style={styles.emptyPanel}>
+                <Text style={styles.emptyTitle}>NO TRAINING RECORDED</Text>
+                <Text style={styles.emptyText}>
+                  Complete your first mission to begin your progression.
+                </Text>
               </GlassPanel>
-            );
-          })
-        )}
+            ) : (
+              <View style={styles.historyList}>
+                {recentTraining.map((completion) => {
+                  const workout = getWorkoutById(completion.workoutId);
+                  const duration = formatDuration(completion.durationSeconds);
+                  return (
+                    <GlassPanel key={completion.id} style={styles.historyRow}>
+                      <View style={styles.historyInfo}>
+                        <Text style={styles.historyTitle} numberOfLines={1}>
+                          {workout?.title ?? 'Workout'}
+                        </Text>
+                        <Text style={styles.historyMeta} numberOfLines={1}>
+                          {formatRelativeDate(completion.completedAt)}
+                          {duration ? ` · ${duration}` : ''}
+                        </Text>
+                      </View>
+                      <Text style={styles.historyXp}>+{completion.xpEarned} XP</Text>
+                    </GlassPanel>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
+          <Pressable onPress={() => router.push('/achievements')}>
+            {({ pressed }) => (
+              <GlassPanel
+                style={StyleSheet.flatten([
+                  styles.achievementsPanel,
+                  pressed && styles.achievementsPanelPressed,
+                ])}
+              >
+                <View style={styles.achievementsInfo}>
+                  <Text style={styles.achievementsTitle}>ACHIEVEMENTS</Text>
+                  <Text style={styles.achievementsSubtitle}>
+                    View your unlocked warrior achievements.
+                  </Text>
+                </View>
+                <Text style={styles.achievementsArrow}>→</Text>
+              </GlassPanel>
+            )}
+          </Pressable>
+        </Animated.View>
       </ScrollView>
     </CinematicBackground>
   );
@@ -152,8 +221,12 @@ export default function ProgressScreen() {
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <GlassPanel style={styles.statCard}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={styles.statLabel} numberOfLines={1}>
+        {label}
+      </Text>
     </GlassPanel>
   );
 }
@@ -165,29 +238,84 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    gap: spacing.md,
     paddingBottom: spacing.xxl,
   },
-  brand: {
+  eyebrow: {
     ...typography.label,
     color: colors.gold,
     letterSpacing: 3,
   },
   headline: {
     ...typography.title,
-    marginBottom: spacing.sm,
+    fontSize: 20,
+    marginTop: 2,
   },
-  achievementsButton: {
-    marginBottom: spacing.sm,
+  statusLine: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '700',
+    marginTop: spacing.xs,
+  },
+  statusDot: {
+    color: colors.textMuted,
+  },
+  progressionPanel: {
+    marginTop: spacing.lg,
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: spacing.md,
+  },
+  progressionLabel: {
+    ...typography.label,
+    color: colors.gold,
+    fontSize: 11,
+  },
+  ringWrap: {
+    marginTop: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringGlow: {
+    position: 'absolute',
+    width: 156,
+    height: 156,
+    borderRadius: 78,
+    backgroundColor: colors.crimsonGlow,
+    opacity: 0.16,
+  },
+  progressionRank: {
+    ...typography.subtitle,
+    color: colors.textPrimary,
+    marginTop: spacing.sm,
+  },
+  progressionDivider: {
+    width: '50%',
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.sm,
+  },
+  progressionXp: {
+    ...typography.body,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  progressionNextLevel: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginTop: 2,
   },
   statsRow: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing.sm,
+    marginTop: spacing.md,
   },
   statCard: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: 4,
   },
   statValue: {
     color: colors.textPrimary,
@@ -195,11 +323,23 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   statLabel: {
-    ...typography.caption,
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
     marginTop: 2,
   },
-  weekPanel: {
+  section: {
+    marginTop: spacing.lg,
     gap: spacing.sm,
+  },
+  sectionLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
+    fontSize: 11,
+  },
+  weekPanel: {
+    paddingVertical: spacing.md,
   },
   weekRow: {
     flexDirection: 'row',
@@ -220,26 +360,43 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontSize: 10,
   },
-  weeklyXpLabel: {
-    ...typography.label,
+  weeklyXpPanel: {
+    alignItems: 'center',
+  },
+  weeklyXpValue: {
     color: colors.gold,
-    fontSize: 11,
-    marginTop: spacing.xs,
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  weeklyXpCaption: {
+    ...typography.caption,
+    marginTop: 2,
   },
   emptyPanel: {
     alignItems: 'center',
+    gap: spacing.xs,
+  },
+  emptyTitle: {
+    ...typography.title,
+    fontSize: 15,
+    textAlign: 'center',
   },
   emptyText: {
     ...typography.body,
     color: colors.textSecondary,
     textAlign: 'center',
   },
+  historyList: {
+    gap: spacing.sm,
+  },
   historyRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.sm,
   },
   historyInfo: {
+    flex: 1,
     gap: 2,
   },
   historyTitle: {
@@ -247,12 +404,41 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
-  historyDate: {
+  historyMeta: {
     ...typography.caption,
   },
   historyXp: {
     color: colors.gold,
     fontSize: 15,
     fontWeight: '800',
+    flexShrink: 0,
+  },
+  achievementsPanel: {
+    marginTop: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  achievementsPanelPressed: {
+    opacity: 0.8,
+  },
+  achievementsInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  achievementsTitle: {
+    ...typography.label,
+    color: colors.gold,
+    fontSize: 12,
+  },
+  achievementsSubtitle: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  achievementsArrow: {
+    color: colors.gold,
+    fontSize: 18,
+    fontWeight: '700',
   },
 });

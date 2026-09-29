@@ -10,6 +10,12 @@ type AuthState = {
   user: User | null;
   error: string | null;
   isSubmitting: boolean;
+  // True only while the current session came from a password-recovery deep
+  // link (Supabase's PASSWORD_RECOVERY event), not a normal sign-in. Lets
+  // the reset-password screen distinguish "user tapped a valid recovery
+  // link" from "user is just already logged in." Cleared on the next normal
+  // sign-in/sign-out so it never lingers.
+  isPasswordRecovery: boolean;
   restoreSession: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<boolean>;
   signUp: (email: string, password: string, warriorName: string) => Promise<boolean>;
@@ -18,11 +24,15 @@ type AuthState = {
 };
 
 export const useAuthStore = create<AuthState>((set) => {
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (__DEV__ && event === 'PASSWORD_RECOVERY') {
+      console.log('[AUTH-RESET] recovery session available');
+    }
     set({
       session,
       user: session?.user ?? null,
       status: session ? 'signedIn' : 'signedOut',
+      isPasswordRecovery: event === 'PASSWORD_RECOVERY',
     });
   });
 
@@ -32,36 +42,54 @@ export const useAuthStore = create<AuthState>((set) => {
     user: null,
     error: null,
     isSubmitting: false,
+    isPasswordRecovery: false,
 
     restoreSession: async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) {
-        if (__DEV__) console.log(`[auth] restoreSession error message="${error.message}"`);
-        set({ status: 'signedOut', error: error.message });
-        return;
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          if (__DEV__) console.log(`[AUTH-DEBUG] restoreSession error message="${error.message}"`);
+          set({ status: 'signedOut', error: error.message });
+          return;
+        }
+        if (__DEV__) console.log(`[AUTH-DEBUG] restoreSession session=${Boolean(data.session)}`);
+        set({
+          session: data.session,
+          user: data.session?.user ?? null,
+          status: data.session ? 'signedIn' : 'signedOut',
+        });
+      } catch (err) {
+        // getSession() can throw (not just return {error}) if the underlying
+        // storage read fails — e.g. a corrupted SecureStore entry. Without
+        // this catch, status would stay 'checking' forever and the splash
+        // screen would never navigate anywhere.
+        if (__DEV__) {
+          console.log(
+            `[AUTH-DEBUG] restoreSession threw: ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
+        set({ status: 'signedOut' });
       }
-      if (__DEV__) console.log(`[auth] restoreSession session=${Boolean(data.session)}`);
-      set({
-        session: data.session,
-        user: data.session?.user ?? null,
-        status: data.session ? 'signedIn' : 'signedOut',
-      });
     },
 
     signIn: async (email, password) => {
       set({ isSubmitting: true, error: null });
-      if (__DEV__) console.log('[auth] calling signInWithPassword');
+      if (__DEV__) {
+        console.log(`[AUTH-DEBUG] normalized email=${email}`);
+        console.log(`[AUTH-DEBUG] signIn started (password length=${password.length})`);
+      }
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (__DEV__) console.log(`[AUTH-DEBUG] signIn response received`);
       if (error) {
         if (__DEV__) {
-          console.log(
-            `[auth] signInWithPassword error status=${error.status} code=${error.code} message="${error.message}"`
-          );
+          console.log(`[AUTH-DEBUG] error code=${error.code}`);
+          console.log(`[AUTH-DEBUG] error message=${error.message}`);
+          console.log(`[AUTH-DEBUG] session=false`);
         }
         set({ isSubmitting: false, error: error.message });
         return false;
       }
-      if (__DEV__) console.log(`[auth] signInWithPassword ok, session=${Boolean(data.session)}`);
+      if (__DEV__) console.log(`[AUTH-DEBUG] session=${Boolean(data.session)}`);
       set({
         isSubmitting: false,
         session: data.session,
@@ -73,26 +101,26 @@ export const useAuthStore = create<AuthState>((set) => {
 
     signUp: async (email, password, warriorName) => {
       set({ isSubmitting: true, error: null });
-      if (__DEV__) console.log('[auth] calling signUp');
+      if (__DEV__) {
+        console.log(`[AUTH-DEBUG] normalized email=${email}`);
+        console.log(`[AUTH-DEBUG] signUp started (password length=${password.length})`);
+      }
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: { data: { warrior_name: warriorName } },
       });
+      if (__DEV__) console.log(`[AUTH-DEBUG] signUp response received`);
       if (error) {
         if (__DEV__) {
-          console.log(
-            `[auth] signUp error status=${error.status} code=${error.code} message="${error.message}"`
-          );
+          console.log(`[AUTH-DEBUG] error code=${error.code}`);
+          console.log(`[AUTH-DEBUG] error message=${error.message}`);
+          console.log(`[AUTH-DEBUG] session=false`);
         }
         set({ isSubmitting: false, error: error.message });
         return false;
       }
-      if (__DEV__) {
-        console.log(
-          `[auth] signUp ok, session=${Boolean(data.session)} identities=${data.user?.identities?.length ?? 'n/a'}`
-        );
-      }
+      if (__DEV__) console.log(`[AUTH-DEBUG] session=${Boolean(data.session)}`);
       set({
         isSubmitting: false,
         session: data.session,

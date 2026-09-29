@@ -1,15 +1,8 @@
-import { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import {
-  CinematicBackground,
-  GlassPanel,
-  PrimaryButton,
-  ProgressBar,
-  SectionHeader,
-  XPRing,
-} from '../../components';
+import { CinematicBackground, GlassPanel, PrimaryButton, ProgressBar, XPRing } from '../../components';
 import { colors, spacing, typography } from '../../theme';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
@@ -23,6 +16,11 @@ export default function ProfileScreen() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState('');
+
+  const entrance = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(entrance, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+  }, [entrance]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -54,59 +52,87 @@ export default function ProfileScreen() {
     setIsEditing(false);
   };
 
+  const entranceStyle = {
+    opacity: entrance,
+    transform: [
+      { translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
+    ],
+  };
+
   return (
     <CinematicBackground>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: spacing.lg + insets.top }]}
+        contentContainerStyle={[styles.content, { paddingTop: spacing.md + insets.top }]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.brand}>PROFILE</Text>
+        <Animated.View style={entranceStyle}>
+          <Text style={styles.eyebrow}>WARRIOR PROFILE</Text>
 
-        <View style={styles.avatarWrap}>
-          {/* No avatar upload yet — Supabase Storage isn't wired up for the
-              MVP, so every warrior gets this deterministic initial avatar
-              until profile.avatarUrl is populated by a future upload flow. */}
-          <View style={styles.avatar}>
-            <Text style={styles.avatarInitial}>{profile.warriorName.charAt(0).toUpperCase()}</Text>
-          </View>
-        </View>
-
-        <Text style={styles.warriorName}>{profile.warriorName.toUpperCase()}</Text>
-        <PrimaryButton label="Edit Name" onPress={openEdit} variant="ghost" style={styles.editButton} />
-
-        <GlassPanel glow style={styles.heroPanel}>
-          <View style={styles.heroRow}>
-            <View style={styles.heroInfo}>
-              <Text style={styles.rankLabel}>{rank.name.toUpperCase()} RANK</Text>
-              <Text style={styles.levelText}>LEVEL {levelProgress.level}</Text>
-              <Text style={styles.xpText}>
-                {levelProgress.xpIntoLevel} / {levelProgress.currentLevelXp} XP
-              </Text>
-              <Text style={styles.streakText}>🔥 {profile.streakDays} DAY STREAK</Text>
+          <View style={styles.identity}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarInitial}>{profile.warriorName.charAt(0).toUpperCase()}</Text>
             </View>
-            <XPRing progress={levelProgress.progress} level={levelProgress.level} size={100} />
+            <Text style={styles.warriorName} numberOfLines={1}>
+              {profile.warriorName.toUpperCase()}
+            </Text>
+            <Text style={styles.identityMeta} numberOfLines={1}>
+              {rank.name.toUpperCase()} <Text style={styles.identityDot}>•</Text> LEVEL{' '}
+              {levelProgress.level}
+            </Text>
+            <Pressable onPress={openEdit} hitSlop={8} style={styles.editLink}>
+              <Text style={styles.editLinkText}>EDIT NAME</Text>
+            </Pressable>
           </View>
-        </GlassPanel>
 
-        <GlassPanel style={styles.workoutsPanel}>
-          <Text style={styles.workoutsValue}>{profile.workoutsCompleted}</Text>
-          <Text style={styles.workoutsLabel}>TOTAL WORKOUTS</Text>
-        </GlassPanel>
+          <GlassPanel style={styles.statusPanel}>
+            <Text style={styles.statusLabel}>WARRIOR STATUS</Text>
 
-        <SectionHeader title="Attributes" />
-        <GlassPanel style={styles.attributesPanel}>
-          <AttributeRow label="Strength" value={attributes.strength} />
-          <AttributeRow label="Endurance" value={attributes.endurance} />
-          <AttributeRow label="Discipline" value={attributes.discipline} />
-          <AttributeRow label="Agility" value={attributes.agility} />
-        </GlassPanel>
+            <View style={styles.ringWrap}>
+              <View style={styles.ringGlow} />
+              <XPRing progress={levelProgress.progress} level={levelProgress.level} size={132} strokeWidth={10} />
+            </View>
 
-        <PrimaryButton
-          label="Sign Out"
-          onPress={handleSignOut}
-          variant="ghost"
-          style={styles.signOutButton}
-        />
+            <Text style={styles.statusRank}>{rank.name.toUpperCase()} RANK</Text>
+
+            <View style={styles.statusDivider} />
+
+            <Text style={styles.statusXp}>
+              {levelProgress.xpIntoLevel} / {levelProgress.currentLevelXp} XP
+            </Text>
+            <Text style={styles.statusNextLevel}>{levelProgress.xpToNextLevel} XP TO NEXT LEVEL</Text>
+          </GlassPanel>
+
+          <View style={styles.statsRow}>
+            <StatCard label="WORKOUTS" value={String(profile.workoutsCompleted)} />
+            <StatCard label="STREAK" value={String(profile.streakDays)} />
+            <StatCard label="TOTAL XP" value={String(profile.totalXp)} />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>WARRIOR ATTRIBUTES</Text>
+            <GlassPanel style={styles.attributesPanel}>
+              <AttributeRow label="Strength" value={attributes.strength} />
+              <AttributeRow label="Endurance" value={attributes.endurance} />
+              <AttributeRow label="Discipline" value={attributes.discipline} />
+              <AttributeRow label="Agility" value={attributes.agility} />
+            </GlassPanel>
+          </View>
+
+          <View style={styles.actions}>
+            <PrimaryButton
+              label="Motivation Armory"
+              onPress={() => router.push('/motivation')}
+              variant="ghost"
+              style={styles.actionButton}
+            />
+            <PrimaryButton
+              label="Sign Out"
+              onPress={handleSignOut}
+              variant="ghost"
+              style={styles.actionButton}
+            />
+          </View>
+        </Animated.View>
       </ScrollView>
 
       <Modal
@@ -116,8 +142,10 @@ export default function ProfileScreen() {
         onRequestClose={() => setIsEditing(false)}
       >
         <View style={styles.modalBackdrop}>
-          <GlassPanel glow style={styles.modalPanel}>
+          <GlassPanel style={styles.modalPanel}>
+            <Text style={styles.modalEyebrow}>EDIT</Text>
             <Text style={styles.modalTitle}>WARRIOR NAME</Text>
+            <View style={styles.modalDivider} />
             <TextInput
               value={draftName}
               onChangeText={setDraftName}
@@ -143,12 +171,27 @@ export default function ProfileScreen() {
   );
 }
 
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <GlassPanel style={styles.statCard}>
+      <Text style={styles.statValue} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={styles.statLabel} numberOfLines={1}>
+        {label}
+      </Text>
+    </GlassPanel>
+  );
+}
+
 function AttributeRow({ label, value }: { label: string; value: number }) {
   return (
     <View style={styles.attributeRow}>
-      <Text style={styles.attributeLabel}>{label.toUpperCase()}</Text>
+      <Text style={styles.attributeLabel} numberOfLines={1}>
+        {label.toUpperCase()}
+      </Text>
       <View style={styles.attributeBarWrap}>
-        <ProgressBar progress={value / 100} height={8} />
+        <ProgressBar progress={value / 100} height={7} />
       </View>
       <Text style={styles.attributeValue}>{value}</Text>
     </View>
@@ -168,86 +211,138 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    gap: spacing.md,
-    alignItems: 'center',
     paddingBottom: spacing.xxl,
   },
-  brand: {
+  eyebrow: {
     ...typography.label,
     color: colors.gold,
     letterSpacing: 3,
-    alignSelf: 'flex-start',
+    textAlign: 'center',
   },
-  avatarWrap: {
-    marginTop: spacing.sm,
+  identity: {
+    alignItems: 'center',
+    marginTop: spacing.md,
+    gap: 2,
   },
   avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     backgroundColor: colors.deepCrimson,
     borderWidth: 2,
     borderColor: colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: spacing.xs,
   },
   avatarInitial: {
     color: colors.white,
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: '800',
   },
   warriorName: {
     ...typography.title,
+    fontSize: 20,
+    textAlign: 'center',
   },
-  editButton: {
-    width: 140,
-    height: 40,
+  identityMeta: {
+    ...typography.caption,
+    color: colors.gold,
+    fontWeight: '700',
   },
-  heroPanel: {
-    width: '100%',
+  identityDot: {
+    color: colors.textMuted,
+  },
+  editLink: {
+    marginTop: spacing.xs,
+    paddingVertical: 2,
+  },
+  editLinkText: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  statusPanel: {
+    marginTop: spacing.lg,
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: spacing.md,
+  },
+  statusLabel: {
+    ...typography.label,
+    color: colors.gold,
+    fontSize: 11,
+  },
+  ringWrap: {
+    marginTop: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringGlow: {
+    position: 'absolute',
+    width: 156,
+    height: 156,
+    borderRadius: 78,
+    backgroundColor: colors.crimsonGlow,
+    opacity: 0.16,
+  },
+  statusRank: {
+    ...typography.subtitle,
+    color: colors.textPrimary,
     marginTop: spacing.sm,
   },
-  heroRow: {
+  statusDivider: {
+    width: '50%',
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.sm,
+  },
+  statusXp: {
+    ...typography.body,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  statusNextLevel: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  statsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginTop: spacing.md,
   },
-  heroInfo: {
+  statCard: {
     flex: 1,
-    gap: spacing.xs,
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: 4,
   },
-  rankLabel: {
-    ...typography.subtitle,
-    color: colors.gold,
-  },
-  levelText: {
+  statValue: {
     color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '800',
   },
-  xpText: {
-    ...typography.caption,
-  },
-  streakText: {
-    ...typography.body,
-    fontSize: 15,
+  statLabel: {
+    color: colors.textMuted,
+    fontSize: 9,
     fontWeight: '700',
-  },
-  workoutsPanel: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  workoutsValue: {
-    color: colors.textPrimary,
-    fontSize: 26,
-    fontWeight: '800',
-  },
-  workoutsLabel: {
-    ...typography.caption,
+    letterSpacing: 0.5,
     marginTop: 2,
   },
+  section: {
+    marginTop: spacing.lg,
+    gap: spacing.sm,
+  },
+  sectionLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
+    fontSize: 11,
+  },
   attributesPanel: {
-    width: '100%',
     gap: spacing.md,
   },
   attributeRow: {
@@ -257,7 +352,8 @@ const styles = StyleSheet.create({
   },
   attributeLabel: {
     ...typography.caption,
-    width: 88,
+    width: 84,
+    flexShrink: 0,
   },
   attributeBarWrap: {
     flex: 1,
@@ -268,10 +364,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     width: 28,
     textAlign: 'right',
+    flexShrink: 0,
   },
-  signOutButton: {
-    marginTop: spacing.md,
-    width: '100%',
+  actions: {
+    marginTop: spacing.lg,
+    gap: spacing.xs,
+  },
+  actionButton: {
+    height: 44,
   },
   modalBackdrop: {
     flex: 1,
@@ -284,9 +384,19 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: spacing.md,
   },
-  modalTitle: {
+  modalEyebrow: {
     ...typography.label,
     color: colors.gold,
+    fontSize: 10,
+  },
+  modalTitle: {
+    ...typography.title,
+    fontSize: 18,
+    marginTop: -spacing.xs,
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: colors.border,
   },
   input: {
     backgroundColor: colors.panelElevated,

@@ -23,6 +23,7 @@ export default function LoginScreen() {
   const [fieldError, setFieldError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
+    if (__DEV__) console.log('[AUTH-DEBUG] login pressed');
     clearError();
     setFieldError(null);
 
@@ -65,6 +66,10 @@ export default function LoginScreen() {
               placeholder="••••••••"
               isPassword
             />
+
+            <Link href="/(auth)/forgot-password" style={styles.forgotLink}>
+              Forgot Password?
+            </Link>
 
             {(fieldError || error) && (
               <Text style={styles.error}>{fieldError ?? error}</Text>
@@ -113,6 +118,13 @@ const styles = StyleSheet.create({
   },
   panel: {
     gap: spacing.md,
+  },
+  forgotLink: {
+    color: colors.gold,
+    fontSize: 12,
+    fontWeight: '700',
+    alignSelf: 'flex-end',
+    marginTop: -spacing.xs,
   },
   submitButton: {
     marginTop: spacing.sm,

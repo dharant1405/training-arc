@@ -26,6 +26,7 @@ export default function RegisterScreen() {
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
 
   const handleSubmit = async () => {
+    if (__DEV__) console.log('[AUTH-DEBUG] register pressed');
     clearError();
     setFieldError(null);
 

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
@@ -13,6 +13,8 @@ import { colors, spacing, typography } from '../../../theme';
 import { getWorkoutById } from '../../../data/workouts';
 import { useSessionStore } from '../../../stores/sessionStore';
 import { useProfileStore } from '../../../stores/profileStore';
+import { useMotivationStore } from '../../../stores/motivationStore';
+import { getLevelProgress } from '../../../services/gamification';
 
 type RevealStep = { type: 'levelup' } | { type: 'achievement'; index: number } | { type: 'summary' };
 
@@ -22,6 +24,7 @@ export default function WorkoutCompleteScreen() {
   const workout = getWorkoutById(id);
   const lastResult = useSessionStore((state) => state.lastResult);
   const clear = useSessionStore((state) => state.clear);
+  const clearActiveMotivation = useMotivationStore((state) => state.clearActiveMotivation);
   const syncStatus = useProfileStore((state) => state.syncStatus);
   const syncError = useProfileStore((state) => state.syncError);
   const retrySync = useProfileStore((state) => state.retrySync);
@@ -49,8 +52,15 @@ export default function WorkoutCompleteScreen() {
 
   const handleReturnHome = () => {
     clear();
+    clearActiveMotivation();
     router.replace('/(tabs)/home');
   };
+
+  // Purely presentational entrance — isolated from the reveal state machine.
+  const entrance = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(entrance, { toValue: 1, duration: 450, useNativeDriver: true }).start();
+  }, [entrance]);
 
   if (!workout || !lastResult) {
     return (
@@ -61,50 +71,75 @@ export default function WorkoutCompleteScreen() {
     );
   }
 
+  const levelProgress = getLevelProgress(lastResult.totalXp);
+
+  const entranceStyle = {
+    opacity: entrance,
+    transform: [
+      { scale: entrance.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) },
+    ],
+  };
+
   return (
     <CinematicBackground>
-      <View
-        style={[
-          styles.container,
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
           { paddingTop: spacing.lg + insets.top, paddingBottom: spacing.lg + insets.bottom },
         ]}
       >
-        <Text style={styles.brand}>WORKOUT COMPLETE</Text>
-        <Text style={styles.title}>{workout.title.toUpperCase()}</Text>
-
-        <GlassPanel glow style={styles.panel}>
-          <Text style={styles.xpAwarded}>+{lastResult.xpAwarded} XP</Text>
-
-          {lastResult.leveledUp && (
-            <Text style={styles.levelLine}>
-              LEVEL {lastResult.previousLevel} → LEVEL {lastResult.newLevel}
+        <Animated.View style={entranceStyle}>
+          <View style={styles.header}>
+            <Text style={styles.eyebrow}>MISSION CLEARED</Text>
+            <Text style={styles.headline}>TRAINING COMPLETE</Text>
+            <View style={styles.headerDivider} />
+            <Text style={styles.workoutName} numberOfLines={1}>
+              {workout.title.toUpperCase()}
             </Text>
+          </View>
+
+          <GlassPanel style={styles.xpPanel}>
+            <Text style={styles.xpLabel}>XP EARNED</Text>
+            <Text style={styles.xpValue}>+{lastResult.xpAwarded} XP</Text>
+
+            <View style={styles.xpDivider} />
+
+            <Text style={styles.levelLabel}>LEVEL {lastResult.newLevel}</Text>
+            <Text style={styles.nextLevelLabel}>NEXT LEVEL</Text>
+            <Text style={styles.nextLevelValue}>{levelProgress.xpToNextLevel} XP TO GO</Text>
+          </GlassPanel>
+
+          <View style={styles.streakStrip}>
+            <Text style={styles.streakText}>🔥 STREAK · {lastResult.streakDays} DAYS</Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <SummaryStat label="WORKOUT" value={`${workout.durationMinutes} MIN`} />
+            <SummaryStat label="EXERCISES" value={String(workout.exercises.length)} />
+            <SummaryStat label="TOTAL WORKOUTS" value={String(lastResult.workoutsCompleted)} />
+          </View>
+
+          {syncStatus === 'error' && (
+            <GlassPanel style={styles.syncPanel}>
+              <Text style={styles.syncText}>
+                ⚠ {syncError ?? 'Could not save this to the cloud.'} Your XP is safe on this device.
+              </Text>
+              <PrimaryButton
+                label="Retry Save"
+                onPress={retrySync}
+                variant="ghost"
+                style={styles.retryButton}
+              />
+            </GlassPanel>
           )}
 
-          <Text style={styles.streak}>🔥 STREAK {lastResult.streakDays}</Text>
-
-          <View style={styles.statsRow}>
-            <Stat label="Workouts Completed" value={String(lastResult.workoutsCompleted)} />
-            <Stat label="Achievements" value={`+${lastResult.newlyUnlockedAchievements.length}`} />
-          </View>
-        </GlassPanel>
-
-        {syncStatus === 'error' && (
-          <GlassPanel style={styles.syncPanel}>
-            <Text style={styles.syncText}>
-              ⚠ {syncError ?? 'Could not save this to the cloud.'} Your XP is safe on this device.
-            </Text>
-            <PrimaryButton
-              label="Retry Save"
-              onPress={retrySync}
-              variant="ghost"
-              style={styles.retryButton}
-            />
-          </GlassPanel>
-        )}
-
-        <PrimaryButton label="Return to Home" onPress={handleReturnHome} style={styles.returnButton} />
-      </View>
+          <PrimaryButton
+            label="RETURN TO HOME →"
+            onPress={handleReturnHome}
+            style={styles.returnButton}
+          />
+        </Animated.View>
+      </ScrollView>
 
       <LevelUpCelebration
         visible={currentStep?.type === 'levelup'}
@@ -125,12 +160,16 @@ export default function WorkoutCompleteScreen() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.stat}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
+    <GlassPanel style={styles.summaryStat}>
+      <Text style={styles.summaryValue} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={styles.summaryLabel} numberOfLines={1}>
+        {label}
+      </Text>
+    </GlassPanel>
   );
 }
 
@@ -149,62 +188,114 @@ const styles = StyleSheet.create({
   backButton: {
     width: 180,
   },
-  container: {
-    flex: 1,
-    padding: spacing.lg,
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
-    gap: spacing.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
   },
-  brand: {
+  header: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  eyebrow: {
     ...typography.label,
     color: colors.gold,
-    letterSpacing: 3,
-    textAlign: 'center',
+    fontSize: 11,
   },
-  title: {
+  headline: {
     ...typography.display,
     fontSize: 26,
     textAlign: 'center',
   },
-  panel: {
-    alignItems: 'center',
-    gap: spacing.sm,
+  headerDivider: {
+    width: 40,
+    height: 2,
+    backgroundColor: colors.crimson,
+    borderRadius: 1,
+    marginTop: spacing.xs,
   },
-  xpAwarded: {
+  workoutName: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  xpPanel: {
+    marginTop: spacing.lg,
+    alignItems: 'center',
+    gap: 2,
+  },
+  xpLabel: {
+    ...typography.label,
+    color: colors.textMuted,
+    fontSize: 10,
+  },
+  xpValue: {
     color: colors.gold,
-    fontSize: 28,
+    fontSize: 34,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  xpDivider: {
+    width: '55%',
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.sm,
+  },
+  levelLabel: {
+    color: colors.textPrimary,
+    fontSize: 16,
     fontWeight: '800',
   },
-  levelLine: {
-    ...typography.subtitle,
-    color: colors.textPrimary,
+  nextLevelLabel: {
+    ...typography.label,
+    color: colors.textMuted,
+    fontSize: 10,
+    marginTop: spacing.xs,
   },
-  streak: {
-    ...typography.body,
-    fontSize: 16,
+  nextLevelValue: {
+    color: colors.textSecondary,
+    fontSize: 12,
     fontWeight: '700',
+    marginTop: 2,
   },
-  statsRow: {
-    flexDirection: 'row',
-    gap: spacing.xl,
+  streakStrip: {
+    alignItems: 'center',
     marginTop: spacing.sm,
   },
-  stat: {
-    alignItems: 'center',
+  streakText: {
+    ...typography.body,
+    fontSize: 14,
+    fontWeight: '700',
   },
-  statValue: {
+  summaryRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  summaryStat: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: 4,
+  },
+  summaryValue: {
     color: colors.textPrimary,
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '800',
   },
-  statLabel: {
-    ...typography.caption,
+  summaryLabel: {
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
     marginTop: 2,
   },
   returnButton: {
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
   syncPanel: {
+    marginTop: spacing.sm,
     gap: spacing.sm,
     alignItems: 'center',
   },
