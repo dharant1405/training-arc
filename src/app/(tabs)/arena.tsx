@@ -82,6 +82,27 @@ export default function ArenaScreen() {
               </GlassPanel>
             </View>
 
+            <View style={styles.monitorWrap}>
+              <Text style={styles.monitorEyebrow}>TRAINING TOOLS</Text>
+              <GlassPanel style={styles.monitorCard}>
+                <Text style={styles.monitorTitle} numberOfLines={1}>
+                  PUSH-UP MONITOR
+                </Text>
+                <Text style={styles.monitorSubtitle}>
+                  Open the live camera while you train push-ups.
+                </Text>
+                <Text style={styles.monitorNote}>
+                  No pose engine on this build — repetitions are not counted yet.
+                </Text>
+                <PrimaryButton
+                  label="OPEN MONITOR"
+                  onPress={() => router.push('/push-up-monitor')}
+                  variant="ghost"
+                  style={styles.monitorButton}
+                />
+              </GlassPanel>
+            </View>
+
             <View style={styles.listHeaderSpacer}>
               <SectionHeader title="AVAILABLE MISSIONS" />
             </View>
@@ -210,6 +231,41 @@ const styles = StyleSheet.create({
   },
   featuredButton: {
     marginTop: spacing.md,
+  },
+  monitorWrap: {
+    marginBottom: spacing.lg,
+  },
+  monitorEyebrow: {
+    ...typography.label,
+    color: colors.gold,
+    fontSize: 11,
+    marginBottom: spacing.sm,
+  },
+  monitorCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.gold,
+    gap: 2,
+  },
+  monitorTitle: {
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  monitorSubtitle: {
+    ...typography.body,
+    color: colors.textSecondary,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  monitorNote: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  monitorButton: {
+    marginTop: spacing.md,
+    height: 44,
   },
   listHeaderSpacer: {
     marginTop: spacing.xs,

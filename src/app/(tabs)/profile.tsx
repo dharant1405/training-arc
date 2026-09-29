@@ -126,6 +126,12 @@ export default function ProfileScreen() {
               style={styles.actionButton}
             />
             <PrimaryButton
+              label="Body Metrics"
+              onPress={() => router.push('/bmi')}
+              variant="ghost"
+              style={styles.actionButton}
+            />
+            <PrimaryButton
               label="Sign Out"
               onPress={handleSignOut}
               variant="ghost"

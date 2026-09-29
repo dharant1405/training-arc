@@ -34,6 +34,14 @@
         {
           "photosPermission": "Training Arc needs access to your videos so you can add them to your Motivation Library."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Training Arc uses your camera to monitor push-up repetitions while you train.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
+        }
       ]
     ],
     "experiments": {
