@@ -38,6 +38,23 @@ type ProfileState = {
   updateWarriorName: (warriorName: string) => Promise<void>;
 };
 
+/**
+ * Supabase's PostgrestError (and some Storage/Auth errors) are plain objects,
+ * not Error instances, so a bare `err instanceof Error ? err.message : ...`
+ * check silently discards the real failure and shows a generic fallback —
+ * which is what hid a missing-table error behind "Failed to save your
+ * progress to the cloud." Read `.message` off anything that carries one so the
+ * actual cause reaches the UI and the logs instead of being swallowed.
+ */
+function errorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (err && typeof err === 'object' && 'message' in err) {
+    const { message } = err as { message?: unknown };
+    if (typeof message === 'string' && message.trim().length > 0) return message;
+  }
+  return fallback;
+}
+
 export const useProfileStore = create<ProfileState>((set, get) => ({
   userId: null,
   profile: null,
@@ -60,10 +77,10 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
         profile: defaultProfile(warriorName),
         status: 'ready',
         syncStatus: 'error',
-        syncError:
-          err instanceof Error
-            ? err.message
-            : 'Could not reach the cloud. Your progress will stay on this device for now.',
+        syncError: errorMessage(
+          err,
+          'Could not reach the cloud. Your progress will stay on this device for now.',
+        ),
       });
     }
   },
@@ -95,7 +112,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     } catch (err) {
       set({
         syncStatus: 'error',
-        syncError: err instanceof Error ? err.message : 'Failed to save your progress to the cloud.',
+        syncError: errorMessage(err, 'Failed to save your progress to the cloud.'),
         pendingCompletion: { completionId, workout, nextProfile, result, durationSeconds },
       });
     }
@@ -122,7 +139,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     } catch (err) {
       set({
         syncStatus: 'error',
-        syncError: err instanceof Error ? err.message : 'Failed to save your progress to the cloud.',
+        syncError: errorMessage(err, 'Failed to save your progress to the cloud.'),
       });
     }
   },
@@ -137,7 +154,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     } catch (err) {
       set({
         syncStatus: 'error',
-        syncError: err instanceof Error ? err.message : 'Failed to save your warrior name.',
+        syncError: errorMessage(err, 'Failed to save your warrior name.'),
       });
     }
   },

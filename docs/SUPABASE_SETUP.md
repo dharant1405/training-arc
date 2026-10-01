@@ -3,26 +3,36 @@
 Steps to connect Training Arc to a live Supabase project for testing.
 
 1. Create a Supabase project at https://supabase.com/dashboard.
-2. Open the project's **SQL Editor**.
-3. Run the contents of `supabase/migrations/0001_init.sql` to create the
-   `profiles`, `workout_completions`, and `achievements` tables (with RLS
-   policies already included).
-4. In **Project Settings → API**, copy the **Project URL**.
-5. In the same page, copy the **anon / public** key. Never use the
+2. Apply the schema migration `supabase/migrations/20260927000000_init.sql`.
+   It creates the `profiles`, `workout_completions`, and `achievements` tables
+   (with RLS policies already included).
+   - Easiest: open the project's **SQL Editor**, paste the file, and run it.
+   - Or via the CLI: `supabase db push --db-url <connection-string>`
+     (this folder has no `config.toml`, so pass the connection string
+     explicitly). The file name is timestamped
+     (`<14-digit-timestamp>_name.sql`) so the CLI actually picks it up —
+     a non-timestamped name such as `0001_init.sql` is silently ignored.
+
+   > This step is **not optional**: without these tables every cloud write
+   > fails with PostgREST `PGRST205` ("Could not find the table ... in the
+   > schema cache"), which is what the completion screen reports as a
+   > cloud-save error. Local XP still works.
+3. In **Project Settings → API**, copy the **Project URL**.
+4. In the same page, copy the **anon / public** key. Never use the
    `service_role` key in this app.
-6. Copy `.env.example` to `.env` and fill in both values:
+5. Copy `.env.example` to `.env` and fill in both values:
    ```
    EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
    EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
    ```
-7. Restart the Expo dev server (`npx expo start -c`) so the new env vars are
+6. Restart the Expo dev server (`npx expo start -c`) so the new env vars are
    picked up — Expo only reads `EXPO_PUBLIC_*` vars at startup.
-8. Test authentication: register a new warrior, confirm you land on Home;
+7. Test authentication: register a new warrior, confirm you land on Home;
    kill and reopen the app to confirm the session is restored automatically;
    sign out and confirm you're returned to the Auth screen.
-9. Test profile creation: after registering, check the Supabase Table Editor
+8. Test profile creation: after registering, check the Supabase Table Editor
    — a matching row should appear in `profiles` with `xp = 0`, `level = 1`.
-10. Test workout persistence: complete a workout, then check
+9. Test workout persistence: complete a workout, then check
     `workout_completions` and `achievements` (if one unlocked) for new rows,
     and confirm `profiles.xp`/`streak`/`total_workouts` updated. Restart the
     app and confirm the same progress reloads from the cloud.
